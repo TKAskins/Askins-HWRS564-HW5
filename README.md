@@ -1,5 +1,5 @@
-# Askins-HWRS564-HW5
-Repository created for HW5 in HWRS564
+# Askins-UoA-Research
+Repository created for Master Thesis Reseach by Trevor Askins, UoA class of 2026
 This research aims to use Hydrus 1D to model the temporal flux of argiculture fields. Each parameter that control flux will be associated with a real world soil monitoring sensors. Each sensor will have associated cost functions. The data from Hydrus will be used to train ML Decision Trees that optimize for cost and flux prediction accuracy. The weighting of each variable can be set based on client interests. The end goal is to have a least a methodology for identifying cost-optimized senssors for a farm. Beyong this the hope is that through multiple iteration, a general ROI for different sensors will be revealed.
 
 Methods:
