@@ -12,3 +12,7 @@ Crops: The crops that will be modeled will be corn and wheat as they are two of 
 Irrigation Methods: Flood irrigation, sprinkler irrigation, drip  irrigation
 Soil Type: TBD
 Cost functions: TBD
+
+# Kernel/Enviroment
+The packages used to run this research will be listed here with their associated install codes (my local version is still being refined, once it is more stable I may add the kernel directly to the enviroment):
+1) 
