@@ -1,0 +1,565 @@
+<title>R² and Cost per Explained Variance by Cost Weighting</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --baseline-axis:  #c3c2b7;
+    --series-1:       #008300;
+    --series-2:       #4a3aa7;
+    --border:         rgba(11,11,11,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --baseline-axis:  #383835;
+      --series-1:       #008300;
+      --series-2:       #9085e9;
+      --border:         rgba(255,255,255,0.10);
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --baseline-axis:  #383835;
+    --series-1:       #008300;
+    --series-2:       #9085e9;
+    --border:         rgba(255,255,255,0.10);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .viz-root {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 28px 20px 48px;
+    min-height: 100vh;
+  }
+  .page-head { max-width: 1160px; margin: 0 auto 20px; }
+  .page-head h1 { font-size: 20px; font-weight: 600; margin: 0 0 6px; }
+  .page-head p { font-size: 13.5px; color: var(--text-secondary); margin: 0 0 4px; line-height: 1.5; max-width: 840px; }
+
+  .legend-row {
+    max-width: 1160px; margin: 12px auto 0; display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .legend-row .key { display: flex; align-items: center; gap: 6px; }
+  .legend-row .swatch-line { display: inline-block; width: 16px; height: 2px; border-radius: 1px; }
+  .legend-row .swatch-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+
+  .grid {
+    max-width: 1160px;
+    margin: 16px auto 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 14px 10px;
+    overflow-x: auto;
+  }
+  .panel h2 {
+    font-size: 13.5px;
+    font-weight: 600;
+    margin: 0 0 2px;
+    color: var(--text-primary);
+  }
+  .panel-legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    font-size: 10px; color: var(--text-secondary);
+    margin: 2px 0 6px;
+  }
+  .panel-legend .key { display: flex; align-items: center; gap: 4px; }
+  .panel-legend .swatch-line { display: inline-block; width: 12px; height: 2px; border-radius: 1px; }
+  .panel-legend .swatch-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+  .row-label {
+    max-width: 1160px;
+    margin: 26px auto 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .row-label:first-of-type { margin-top: 4px; }
+
+  svg { display: block; overflow: visible; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .baseline-axis { stroke: var(--baseline-axis); stroke-width: 1; }
+  .sep-line { stroke: var(--baseline-axis); stroke-width: 1; stroke-dasharray: 3 3; }
+  .tick-label { font-size: 9px; }
+  .x-label { fill: var(--text-secondary); font-size: 9px; }
+  .hit { fill: transparent; cursor: pointer; }
+
+  details.table-toggle { margin-top: 8px; }
+  details.table-toggle summary {
+    font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none;
+  }
+  table.data-table {
+    width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10px;
+    font-variant-numeric: tabular-nums;
+  }
+  table.data-table th, table.data-table td {
+    text-align: right; padding: 3px 5px; border-bottom: 1px solid var(--grid);
+    color: var(--text-secondary);
+  }
+  table.data-table th:first-child, table.data-table td:first-child { text-align: left; color: var(--text-primary); }
+  table.data-table th { color: var(--text-muted); font-weight: 500; }
+
+  #tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--text-primary);
+    color: var(--surface-1);
+    font-size: 11px;
+    line-height: 1.45;
+    padding: 6px 9px;
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.22);
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    transition: opacity 0.08s;
+    z-index: 20;
+    white-space: nowrap;
+  }
+  #tooltip.show { opacity: 1; }
+  #tooltip .t-title { font-weight: 600; margin-bottom: 2px; }
+</style>
+
+<div class="viz-root">
+  <div class="page-head">
+    <h1>R² and cost/explained-variance across the cost-weighting sweep</h1>
+    <p>
+      Left axis: test R² (green). Right axis: cost &divide; explained variance, indexed to the
+      baseline tree (purple; baseline = 1.0). X-axis: cost weighting, from the no-cost baseline
+      (grey, left of the dashed line) through 0.0&ndash;1.0. Raw values for every point are in
+      the tooltip and the table.
+    </p>
+  </div>
+
+  <div class="legend-row">
+    <span class="key"><span class="swatch-line" style="background:var(--series-1)"></span>Test R² (left axis)</span>
+    <span class="key"><span class="swatch-line" style="background:var(--series-2)"></span>Cost / explained variance, relative to baseline (right axis)</span>
+    <span class="key"><span class="swatch-dot" style="background:var(--text-secondary)"></span>baseline (no-cost tree) = 1.0</span>
+  </div>
+
+  <div class="row-label">Beans</div>
+  <div class="grid" id="grid-beans"></div>
+
+  <div class="row-label">Corn</div>
+  <div class="grid" id="grid-corn"></div>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+const DATA = {
+  "beans": {
+    "flux": [
+      {"level": 3, "r2_test": 0.8888379775162175, "cost": 32.9, "var_exp": 0.9377356382352664, "ratio": 35.084514929937846, "x": "baseline"},
+      {"level": 3, "r2_test": 0.865537126822574, "cost": 28.7, "var_exp": 0.9377356382352664, "ratio": 30.605640683562797, "x": 0.0},
+      {"level": 3, "r2_test": 0.8401547212911804, "cost": 26.4, "var_exp": 0.9359441752365991, "ratio": 28.206810511242608, "x": 0.1},
+      {"level": 3, "r2_test": 0.8945388877053019, "cost": 20.1, "var_exp": 0.9286344110448193, "ratio": 21.6446857460141, "x": 0.2},
+      {"level": 3, "r2_test": 0.8945388877053019, "cost": 20.1, "var_exp": 0.9286344110448193, "ratio": 21.6446857460141, "x": 0.3},
+      {"level": 3, "r2_test": 0.8760741722600237, "cost": 21.5, "var_exp": 0.9016413917662529, "ratio": 23.845400395697222, "x": 0.4},
+      {"level": 3, "r2_test": 0.8760741722600237, "cost": 21.5, "var_exp": 0.9016413917662529, "ratio": 23.845400395697222, "x": 0.5},
+      {"level": 3, "r2_test": 0.8743683393886568, "cost": 15.4, "var_exp": 0.9000716094411099, "ratio": 17.109749755980495, "x": 0.6},
+      {"level": 4, "r2_test": 0.8199146838427716, "cost": 13.4, "var_exp": 0.8860626867254402, "ratio": 15.123083502727601, "x": 0.7},
+      {"level": 4, "r2_test": 0.8199146838427716, "cost": 13.4, "var_exp": 0.8860626867254402, "ratio": 15.123083502727601, "x": 0.8},
+      {"level": 4, "r2_test": 0.740818503840857, "cost": 13.3, "var_exp": 0.8913160322111532, "ratio": 14.921755605591107, "x": 0.9},
+      {"level": 4, "r2_test": -0.6275958843396565, "cost": 13.5, "var_exp": 0.6173824415481981, "ratio": 21.866511082087644, "x": 1.0}
+    ],
+    "wc": [
+      {"level": 4, "r2_test": 0.9401573730432764, "cost": 40.9, "var_exp": 0.9101999869245386, "ratio": 44.93517972703605, "x": "baseline"},
+      {"level": 4, "r2_test": 0.9436526905719426, "cost": 37.8, "var_exp": 0.9101999869245386, "ratio": 41.529334808849946, "x": 0.0},
+      {"level": 4, "r2_test": 0.9383462367091799, "cost": 42.6, "var_exp": 0.9107347831598706, "ratio": 46.77541781394989, "x": 0.1},
+      {"level": 4, "r2_test": 0.9263332642066713, "cost": 39.5, "var_exp": 0.9061074992248145, "ratio": 43.59306156696938, "x": 0.2},
+      {"level": 5, "r2_test": 0.9363522525853127, "cost": 36.1, "var_exp": 0.8954481623782964, "ratio": 40.31500818999835, "x": 0.3},
+      {"level": 5, "r2_test": 0.9176135925527104, "cost": 30.7, "var_exp": 0.8904859169653249, "ratio": 34.47555925940089, "x": 0.4},
+      {"level": 4, "r2_test": 0.9072413683237851, "cost": 16.1, "var_exp": 0.881135501111969, "ratio": 18.27187757125009, "x": 0.5},
+      {"level": 4, "r2_test": 0.9114210188445835, "cost": 15.0, "var_exp": 0.8885408795987365, "ratio": 16.88160932648813, "x": 0.6},
+      {"level": 4, "r2_test": 0.9114210188445834, "cost": 15.0, "var_exp": 0.8885408795987365, "ratio": 16.88160932648813, "x": 0.7},
+      {"level": 4, "r2_test": 0.9091636915775198, "cost": 14.9, "var_exp": 0.8837028266587525, "ratio": 16.860871721250845, "x": 0.8},
+      {"level": 4, "r2_test": 0.8981232493625937, "cost": 14.8, "var_exp": 0.8785725110364974, "ratio": 16.845507700371453, "x": 0.9},
+      {"level": 3, "r2_test": 0.7135472352326592, "cost": 14.6, "var_exp": 0.7659247556012307, "ratio": 19.06192467762631, "x": 1.0}
+    ],
+    "flux+wc": [
+      {"level": 4, "r2_test": 0.9122826096305614, "cost": 91.5, "var_exp": 0.8960682615267169, "ratio": 102.11275628053461, "x": "baseline"},
+      {"level": 4, "r2_test": 0.9227123453489561, "cost": 28.1, "var_exp": 0.8960682615267169, "ratio": 31.359218048994787, "x": 0.0},
+      {"level": 4, "r2_test": 0.8444692133192585, "cost": 35.0, "var_exp": 0.8941843609325946, "ratio": 39.141816306758656, "x": 0.1},
+      {"level": 4, "r2_test": 0.8277652670474569, "cost": 22.7, "var_exp": 0.8928176983809355, "ratio": 25.42512322634835, "x": 0.2},
+      {"level": 4, "r2_test": 0.810427565743436, "cost": 19.1, "var_exp": 0.8875744868436968, "ratio": 21.519320668985763, "x": 0.3},
+      {"level": 4, "r2_test": 0.7348672490844972, "cost": 20.4, "var_exp": 0.8722088357276683, "ratio": 23.388893994613856, "x": 0.4},
+      {"level": 4, "r2_test": 0.859928827027453, "cost": 13.2, "var_exp": 0.8722088357276683, "ratio": 15.133990231808962, "x": 0.5},
+      {"level": 4, "r2_test": 0.859928827027453, "cost": 13.2, "var_exp": 0.8722088357276683, "ratio": 15.133990231808962, "x": 0.6},
+      {"level": 4, "r2_test": 0.8624962952135223, "cost": 13.2, "var_exp": 0.8722088357276683, "ratio": 15.133990231808962, "x": 0.7},
+      {"level": 5, "r2_test": 0.624091018878763, "cost": 15.5, "var_exp": 0.894489479126207, "ratio": 17.32832007721473, "x": 0.8},
+      {"level": 5, "r2_test": 0.45971655423850255, "cost": 15.1, "var_exp": 0.8421861464647407, "ratio": 17.92952788808689, "x": 0.9},
+      {"level": 5, "r2_test": -0.2454292218616434, "cost": 14.6, "var_exp": 0.2651132461171689, "ratio": 55.07080545325681, "x": 1.0}
+    ]
+  },
+  "corn": {
+    "flux": [
+      {"level": 5, "r2_test": 0.9063903472199211, "cost": 71.7, "var_exp": 0.9331431272127154, "ratio": 76.83708737604576, "x": "baseline"},
+      {"level": 5, "r2_test": 0.8810637868001306, "cost": 64.7, "var_exp": 0.9331431272127154, "ratio": 69.33555862245692, "x": 0.0},
+      {"level": 4, "r2_test": 0.9213244668142211, "cost": 30.4, "var_exp": 0.9372316194491428, "ratio": 32.435952190630935, "x": 0.1},
+      {"level": 4, "r2_test": 0.9371859133252777, "cost": 59.3, "var_exp": 0.940292823724771, "ratio": 63.065460571203346, "x": 0.2},
+      {"level": 4, "r2_test": 0.9185094218897916, "cost": 59.3, "var_exp": 0.9376464922383526, "ratio": 63.24345101365319, "x": 0.3},
+      {"level": 5, "r2_test": 0.8998311406820418, "cost": 42.6, "var_exp": 0.9242589447106102, "ratio": 46.09097942064089, "x": 0.4},
+      {"level": 5, "r2_test": 0.8929608944318637, "cost": 12.4, "var_exp": 0.913064104965276, "ratio": 13.580645578517816, "x": 0.5},
+      {"level": 5, "r2_test": 0.876350331337331, "cost": 8.2, "var_exp": 0.8691940212105674, "ratio": 9.434027156076699, "x": 0.6},
+      {"level": 6, "r2_test": 0.821201922963387, "cost": 8.9, "var_exp": 0.8100876425883607, "ratio": 10.986465577431922, "x": 0.7},
+      {"level": 5, "r2_test": 0.8627758607375069, "cost": 16.0, "var_exp": 0.9023876206681452, "ratio": 17.730739688287493, "x": 0.8},
+      {"level": 8, "r2_test": 0.4816663277114468, "cost": 11.6, "var_exp": 0.535730543270715, "ratio": 21.65267623006944, "x": 0.9},
+      {"level": 6, "r2_test": 0.28029837807592817, "cost": 11.2, "var_exp": 0.5502216504968641, "ratio": 20.35543310570588, "x": 1.0}
+    ],
+    "wc": [
+      {"level": 4, "r2_test": 0.8575100411800388, "cost": 27.2, "var_exp": 0.9069932802060952, "ratio": 29.98919682604415, "x": "baseline"},
+      {"level": 4, "r2_test": 0.9443855435427753, "cost": 58.9, "var_exp": 0.9389365209378745, "ratio": 62.73054534204999, "x": 0.0},
+      {"level": 4, "r2_test": 0.9707652145235317, "cost": 35.7, "var_exp": 0.9412849815135343, "ratio": 37.9268773019159, "x": 0.1},
+      {"level": 5, "r2_test": 0.9415817603230576, "cost": 58.9, "var_exp": 0.939021794611333, "ratio": 62.724848707456346, "x": 0.2},
+      {"level": 4, "r2_test": 0.956893391475128, "cost": 16.1, "var_exp": 0.932171042998857, "ratio": 17.271508400652753, "x": 0.3},
+      {"level": 4, "r2_test": 0.9536767377865025, "cost": 14.1, "var_exp": 0.9303396685932191, "ratio": 15.155754909731865, "x": 0.4},
+      {"level": 4, "r2_test": 0.9529556229150858, "cost": 14.1, "var_exp": 0.9303396685932191, "ratio": 15.155754909731865, "x": 0.5},
+      {"level": 4, "r2_test": 0.8561317931686132, "cost": 15.6, "var_exp": 0.9054880781758285, "ratio": 17.22827762837842, "x": 0.6},
+      {"level": 4, "r2_test": 0.83505162546237, "cost": 11.5, "var_exp": 0.8953468355379646, "ratio": 12.844184559037709, "x": 0.7},
+      {"level": 4, "r2_test": 0.841693335121743, "cost": 11.5, "var_exp": 0.8951030255531206, "ratio": 12.847683084183167, "x": 0.8},
+      {"level": 4, "r2_test": 0.8252203066240174, "cost": 11.2, "var_exp": 0.8907437438140193, "ratio": 12.573762182200042, "x": 0.9},
+      {"level": 4, "r2_test": 0.788498139839521, "cost": 11.2, "var_exp": 0.8521907308980633, "ratio": 13.142597770568468, "x": 1.0}
+    ],
+    "flux+wc": [
+      {"level": 7, "r2_test": 0.673547715448032, "cost": 65.6, "var_exp": 0.6617531595082873, "ratio": 99.13061850546174, "x": "baseline"},
+      {"level": 8, "r2_test": 0.9067582472274388, "cost": 91.4, "var_exp": 0.7403467993407575, "ratio": 123.4556562970046, "x": 0.0},
+      {"level": 8, "r2_test": 0.8983983183171137, "cost": 64.8, "var_exp": 0.7526761834381638, "ratio": 86.0927998332548, "x": 0.1},
+      {"level": 7, "r2_test": 0.8639316861695712, "cost": 79.5, "var_exp": 0.7338733048806859, "ratio": 108.329325336238, "x": 0.2},
+      {"level": 8, "r2_test": 0.8614051567380776, "cost": 56.8, "var_exp": 0.7246630267776939, "ratio": 78.38125846238962, "x": 0.3},
+      {"level": 7, "r2_test": 0.8342208337349979, "cost": 14.5, "var_exp": 0.7696166358567467, "ratio": 18.84054907916384, "x": 0.4},
+      {"level": 7, "r2_test": 0.8367093216815078, "cost": 14.6, "var_exp": 0.7696166358567468, "ratio": 18.970483900399447, "x": 0.5},
+      {"level": 7, "r2_test": 0.8495053796133414, "cost": 14.8, "var_exp": 0.7715924497618061, "ratio": 19.18111044835758, "x": 0.6},
+      {"level": 7, "r2_test": 0.8459638579823757, "cost": 14.3, "var_exp": 0.6689523676570225, "ratio": 21.37670885310586, "x": 0.7},
+      {"level": 7, "r2_test": 0.8468011682122885, "cost": 16.3, "var_exp": 0.6697405619051822, "ratio": 24.337782310260696, "x": 0.8},
+      {"level": 8, "r2_test": 0.6211242046632316, "cost": 40.1, "var_exp": 0.5379592813728445, "ratio": 74.54095763096949, "x": 0.9},
+      {"level": 7, "r2_test": 0.29169167137223706, "cost": 42.0, "var_exp": 0.4345937128251858, "ratio": 96.64198712624818, "x": 1.0}
+    ]
+  }
+};
+
+const PANELS = [
+  ['beans', 'flux', 'grid-beans'],
+  ['beans', 'wc', 'grid-beans'],
+  ['beans', 'flux+wc', 'grid-beans'],
+  ['corn', 'flux', 'grid-corn'],
+  ['corn', 'wc', 'grid-corn'],
+  ['corn', 'flux+wc', 'grid-corn'],
+];
+
+function fmt(v, d) {
+  if (v === null || v === undefined || Number.isNaN(v)) return '–';
+  return v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+function xLabel(x) { return x === 'baseline' ? 'baseline' : `cost weighting ${x.toFixed(1)}`; }
+
+function xPositions(n, width, marginL, marginR) {
+  const plotW = width - marginL - marginR;
+  const gapUnits = 0.7;
+  const totalUnits = (n - 1) + gapUnits;
+  return (i) => {
+    const eff = i === 0 ? 0 : (i - 1) + 1 + gapUnits;
+    return marginL + (eff / totalUnits) * plotW;
+  };
+}
+
+function niceStep(v) {
+  if (v <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  let step;
+  if (norm <= 1) step = 1;
+  else if (norm <= 2) step = 2;
+  else if (norm <= 5) step = 5;
+  else step = 10;
+  return step * mag;
+}
+
+function computeTicks(dataMin, dataMax, targetN, forceZero) {
+  let lo = forceZero ? Math.min(0, dataMin) : dataMin;
+  let hi = Math.max(dataMax, forceZero ? 0 : dataMax);
+  const span = hi - lo || 1;
+  const pad = span * 0.1;
+  hi += pad;
+  if (lo < 0) lo -= pad;
+  const step = niceStep((hi - lo) / targetN);
+  const tlo = Math.floor(lo / step) * step;
+  const thi = Math.ceil(hi / step) * step;
+  const ticks = [];
+  for (let t = tlo; t <= thi + 1e-9; t += step) ticks.push(Math.round(t * 10000) / 10000);
+  return ticks;
+}
+
+// Left (R²) axis: its lower bound is computed the normal way, but its upper
+// bound is solved for so that the value 1.0 lands at the exact same pixel
+// height as 1.0 does on the right (cost/var-exp) axis -- i.e. the R² = 1.0
+// gridline lines up with the cost-efficiency baseline (=1.0) dashed line.
+// The R² series itself may exceed the resulting hi (it just draws above the
+// plot box, which is fine); the axis is simply never labeled past 1.0.
+function computeLeftAxisTicks(dataMin, dataMax, targetN, rightLo, rightHi) {
+  let lo = Math.min(0, dataMin);
+  const span = Math.max(dataMax, 1.0) - lo || 1;
+  const pad = span * 0.1;
+  if (lo < 0) lo -= pad;
+  const step = niceStep((Math.max(dataMax, 1.0) - lo) / targetN);
+  const tlo = Math.floor(lo / step) * step;
+
+  const fRight = (1.0 - rightLo) / (rightHi - rightLo);
+  const thi = tlo + (1.0 - tlo) / fRight;
+
+  const ticks = [];
+  for (let t = tlo; t <= 1.0 + 1e-9; t += step) ticks.push(Math.round(t * 10000) / 10000);
+  if (ticks[ticks.length - 1] < 1.0 - 1e-9) ticks.push(1.0);
+
+  return { lo: tlo, hi: thi, ticks };
+}
+
+function renderCombo(container, crop, obj) {
+  const points = DATA[crop][obj];
+
+  const baselineRatio = points[0].ratio; // points[0] is always the baseline
+  const ratioRel = points.map(p => p.ratio / baselineRatio);
+
+  const r2Vals = points.map(p => p.r2_test);
+  const rightTicks = computeTicks(Math.min(...ratioRel), Math.max(...ratioRel), 4, true);
+  const rightLo = rightTicks[0], rightHi = rightTicks[rightTicks.length - 1];
+
+  const leftAxis = computeLeftAxisTicks(Math.min(...r2Vals), Math.max(...r2Vals), 4, rightLo, rightHi);
+  const leftLo = leftAxis.lo, leftHi = leftAxis.hi;
+  const leftTicks = leftAxis.ticks;
+
+  const width = 320, height = 250;
+  const marginL = 42, marginR = 48, marginT = 10, marginB = 34;
+  const plotW = width - marginL - marginR;
+  const plotH = height - marginT - marginB;
+  const xPos = xPositions(points.length, width, marginL, marginR);
+  function yPosLeft(v) { return marginT + plotH - ((v - leftLo) / (leftHi - leftLo)) * plotH; }
+  function yPosRight(v) { return marginT + plotH - ((v - rightLo) / (rightHi - rightLo)) * plotH; }
+
+  const svgns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', height);
+
+  // gridlines follow the left (R²) axis
+  leftTicks.forEach(t => {
+    const y = yPosLeft(t);
+    const line = document.createElementNS(svgns, 'line');
+    line.setAttribute('x1', marginL); line.setAttribute('x2', width - marginR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('class', 'grid-line');
+    svg.appendChild(line);
+
+    const label = document.createElementNS(svgns, 'text');
+    label.setAttribute('x', marginL - 5); label.setAttribute('y', y + 3);
+    label.setAttribute('text-anchor', 'end');
+    label.setAttribute('class', 'tick-label');
+    label.setAttribute('fill', 'var(--series-1)');
+    label.textContent = fmt(t, 1);
+    svg.appendChild(label);
+  });
+
+  // right axis ticks (cost/var) — own scale, own positions
+  rightTicks.forEach(t => {
+    const y = yPosRight(t);
+    const label = document.createElementNS(svgns, 'text');
+    label.setAttribute('x', width - marginR + 5); label.setAttribute('y', y + 3);
+    label.setAttribute('text-anchor', 'start');
+    label.setAttribute('class', 'tick-label');
+    label.setAttribute('fill', 'var(--series-2)');
+    label.textContent = fmt(t, 2);
+    svg.appendChild(label);
+  });
+
+  // reference line at the right axis's defining value (baseline = 1.0) — the
+  // purple series has no gridline of its own otherwise, so this is the only way
+  // to visually confirm the baseline point actually sits at 1.0
+  const baseY = yPosRight(1.0);
+  const baseLine = document.createElementNS(svgns, 'line');
+  baseLine.setAttribute('x1', marginL); baseLine.setAttribute('x2', width - marginR);
+  baseLine.setAttribute('y1', baseY); baseLine.setAttribute('y2', baseY);
+  baseLine.setAttribute('stroke', 'var(--series-2)');
+  baseLine.setAttribute('stroke-width', '1');
+  baseLine.setAttribute('stroke-dasharray', '2 2');
+  baseLine.setAttribute('opacity', '0.5');
+  svg.appendChild(baseLine);
+
+  const axis = document.createElementNS(svgns, 'line');
+  axis.setAttribute('x1', marginL); axis.setAttribute('x2', width - marginR);
+  axis.setAttribute('y1', marginT + plotH); axis.setAttribute('y2', marginT + plotH);
+  axis.setAttribute('class', 'baseline-axis');
+  svg.appendChild(axis);
+
+  const sepX = (xPos(0) + xPos(1)) / 2;
+  const sep = document.createElementNS(svgns, 'line');
+  sep.setAttribute('x1', sepX); sep.setAttribute('x2', sepX);
+  sep.setAttribute('y1', marginT); sep.setAttribute('y2', marginT + plotH);
+  sep.setAttribute('class', 'sep-line');
+  svg.appendChild(sep);
+
+  points.forEach((p, i) => {
+    const label = document.createElementNS(svgns, 'text');
+    label.setAttribute('x', xPos(i));
+    label.setAttribute('y', marginT + plotH + 11);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('class', 'x-label');
+    label.textContent = p.x === 'baseline' ? 'base' : p.x.toFixed(1);
+    svg.appendChild(label);
+  });
+
+  // x-axis title
+  const xTitle = document.createElementNS(svgns, 'text');
+  xTitle.setAttribute('x', marginL + plotW / 2);
+  xTitle.setAttribute('y', height - 4);
+  xTitle.setAttribute('text-anchor', 'middle');
+  xTitle.setAttribute('class', 'x-label');
+  xTitle.setAttribute('fill', 'var(--text-secondary)');
+  xTitle.textContent = 'Cost weighting';
+  svg.appendChild(xTitle);
+
+  // left y-axis title (Test R²)
+  const yTitleLeft = document.createElementNS(svgns, 'text');
+  yTitleLeft.setAttribute('x', 0);
+  yTitleLeft.setAttribute('y', 0);
+  yTitleLeft.setAttribute('text-anchor', 'middle');
+  yTitleLeft.setAttribute('class', 'tick-label');
+  yTitleLeft.setAttribute('fill', 'var(--series-1)');
+  yTitleLeft.setAttribute('transform',
+    `translate(${10}, ${marginT + plotH / 2}) rotate(-90)`);
+  yTitleLeft.textContent = 'Test R²';
+  svg.appendChild(yTitleLeft);
+
+  // right y-axis title (cost / var exp, relative)
+  const yTitleRight = document.createElementNS(svgns, 'text');
+  yTitleRight.setAttribute('x', 0);
+  yTitleRight.setAttribute('y', 0);
+  yTitleRight.setAttribute('text-anchor', 'middle');
+  yTitleRight.setAttribute('class', 'tick-label');
+  yTitleRight.setAttribute('fill', 'var(--series-2)');
+  yTitleRight.setAttribute('transform',
+    `translate(${width - 8}, ${marginT + plotH / 2}) rotate(-90)`);
+  yTitleRight.textContent = 'Cost / var. exp. (rel. to baseline)';
+  svg.appendChild(yTitleRight);
+
+  function drawSeries(valueFn, yPosFn, colorVar) {
+    const d = points.map((p, i) => {
+      const x = xPos(i), y = yPosFn(valueFn(p, i));
+      return (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }).join(' ');
+    const path = document.createElementNS(svgns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', colorVar);
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linejoin', 'round');
+    path.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(path);
+
+    points.forEach((p, i) => {
+      const x = xPos(i), y = yPosFn(valueFn(p, i));
+      const marker = document.createElementNS(svgns, 'circle');
+      marker.setAttribute('cx', x); marker.setAttribute('cy', y);
+      marker.setAttribute('r', i === 0 ? 3.5 : 3);
+      marker.setAttribute('fill', i === 0 ? 'var(--text-secondary)' : colorVar);
+      marker.setAttribute('stroke', 'var(--surface-1)');
+      marker.setAttribute('stroke-width', '1.4');
+      svg.appendChild(marker);
+    });
+  }
+
+  drawSeries((p, i) => ratioRel[i], yPosRight, 'var(--series-2)');
+  drawSeries((p) => p.r2_test, yPosLeft, 'var(--series-1)');
+
+  // hover hit areas (one per x, shows both values)
+  points.forEach((p, i) => {
+    const x = xPos(i);
+    const hit = document.createElementNS(svgns, 'rect');
+    hit.setAttribute('x', x - 10); hit.setAttribute('y', marginT);
+    hit.setAttribute('width', 20); hit.setAttribute('height', plotH);
+    hit.setAttribute('class', 'hit');
+    hit.addEventListener('mousemove', (ev) => showTooltip(ev, crop, obj, p, ratioRel[i]));
+    hit.addEventListener('mouseleave', hideTooltip);
+    svg.appendChild(hit);
+  });
+
+  const wrap = document.createElement('div');
+  wrap.className = 'panel';
+  const title = document.createElement('h2');
+  title.textContent = `${crop[0].toUpperCase()}${crop.slice(1)} — ${obj}`;
+  wrap.appendChild(title);
+
+  const panelLegend = document.createElement('div');
+  panelLegend.className = 'panel-legend';
+  panelLegend.innerHTML = `
+    <span class="key"><span class="swatch-line" style="background:var(--series-1)"></span>Test R²</span>
+    <span class="key"><span class="swatch-line" style="background:var(--series-2)"></span>Cost / var. exp. (rel.)</span>
+    <span class="key"><span class="swatch-dot" style="background:var(--text-secondary)"></span>baseline = 1.0</span>
+  `;
+  wrap.appendChild(panelLegend);
+
+  wrap.appendChild(svg);
+
+  const details = document.createElement('details');
+  details.className = 'table-toggle';
+  const summary = document.createElement('summary');
+  summary.textContent = 'View as table';
+  details.appendChild(summary);
+  const table = document.createElement('table');
+  table.className = 'data-table';
+  table.innerHTML = `<thead><tr><th>weighting</th><th>level</th><th>test R²</th><th>cost/var</th><th>cost/var (rel. to baseline)</th></tr></thead>
+    <tbody>${points.map((p, i) => `<tr><td>${p.x === 'baseline' ? 'baseline' : p.x.toFixed(1)}</td>
+      <td>${p.level ?? '–'}</td>
+      <td>${fmt(p.r2_test, 3)}</td><td>${fmt(p.ratio, 1)}</td><td>${fmt(ratioRel[i], 2)}</td></tr>`).join('')}</tbody>`;
+  details.appendChild(table);
+  wrap.appendChild(details);
+
+  container.appendChild(wrap);
+}
+
+function showTooltip(ev, crop, obj, p, ratioRelVal) {
+  const tip = document.getElementById('tooltip');
+  tip.innerHTML = `<div class="t-title">${crop} — ${obj}: ${xLabel(p.x)}</div>
+    test R²: ${fmt(p.r2_test, 3)}<br>
+    cost / explained variance: ${fmt(p.ratio, 1)} (relative to baseline: ${fmt(ratioRelVal, 2)})`;
+  tip.style.left = ev.clientX + 'px';
+  tip.style.top = (ev.clientY - 12) + 'px';
+  tip.classList.add('show');
+}
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('show');
+}
+
+PANELS.forEach(([crop, obj, gridId]) => {
+  renderCombo(document.getElementById(gridId), crop, obj);
+});
+</script>

@@ -1,0 +1,40 @@
+How were these determined? Using HYDRUS it seems but what basis?
+created using paramspace.py narrowed down using van Genuchten 
+parameters and then match to SSC fractions - DGG 8/29/2014
+
+USDA Class: Sand
+Sand: 94.0   Silt: 6.0  Clay: 0.0
+
+USDA Class: Loamy Sand
+Sand: 86.0   Silt: 14.0  Clay: 0.0
+
+USDA Class: Sandy Loam
+Sand: 82.0   Silt: 18.0  Clay: 0.0
+
+USDA Class: Loam
+Sand: 54.0   Silt: 10.0  Clay: 36.0
+
+USDA Class: Silt
+Sand: 54.0   Silt: 40.0  Clay: 6.0
+
+USDA Class: Silt Loam
+Sand: 50.0   Silt: 26.0  Clay: 24.0
+
+USDA Class: Sandy Clay Loam
+Sand: 44.0   Silt: 2.0  Clay: 54.0
+
+USDA Class: Clay Loam
+Sand: 26.0   Silt: 26.0  Clay: 48.0
+
+USDA Class: Silty Clay Laom
+Sand: 20.0   Silt: 44.0  Clay: 36.0
+
+USDA Class: Sandy Clay
+Sand: 32.0   Silt: 0.0  Clay: 68.0
+
+USDA Class: Silty Clay
+Sand: 26.0   Silt: 52.0  Clay: 22.0
+
+USDA Class: Clay
+Sand: 34.0   Silt: 44.0  Clay: 22.0
+

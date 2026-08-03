@@ -1,0 +1,6 @@
+Timing of Sensor Readings for Corn,,,,,,
+Objective,Number of Trees,Number of Unique Sensors,Early Cycle Readings (day 0-4),Mid Cycle Readings (day 5-9),Late Cycle Readings (day 10-15),Total Readings
+Flux,12,78,63,19,53,135
+Water Content,12,62,50,16,26,92
+Flux+WC,12,186,142,67,81,290
+TOTAL,36,244,255,102,160,517

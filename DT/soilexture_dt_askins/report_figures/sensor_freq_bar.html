@@ -1,0 +1,277 @@
+<title>Corn DT — Sensor Selection Frequency</title>
+<style>
+:root {
+  --pg-bg:   #F4F4EE;
+  --pg-ink:  #1C1C18;
+  --pg-muted:#606058;
+  --pg-bdr:  #D0D0C4;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --pg-bg:#181818; --pg-ink:#E0E0D8; --pg-muted:#909088; --pg-bdr:#363630; }
+}
+:root[data-theme="dark"]  { --pg-bg:#181818; --pg-ink:#E0E0D8; --pg-muted:#909088; --pg-bdr:#363630; }
+:root[data-theme="light"] { --pg-bg:#F4F4EE; --pg-ink:#1C1C18; --pg-muted:#606058; --pg-bdr:#D0D0C4; }
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:var(--pg-bg); color:var(--pg-ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  padding:36px 20px 56px; -webkit-font-smoothing:antialiased;
+}
+.page { max-width:740px; margin:0 auto; }
+.eyebrow {
+  font-size:10px; font-weight:700; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--pg-muted); margin-bottom:7px;
+}
+h1 { font-size:19px; font-weight:700; color:var(--pg-ink); margin-bottom:6px; text-wrap:balance; }
+.sub { font-size:12.5px; color:var(--pg-muted); line-height:1.6; max-width:600px; margin-bottom:14px; }
+
+/* chart always on white regardless of theme */
+.chart-wrap { background:#fff; border:1px solid var(--pg-bdr); }
+canvas#chart { display:block; width:100%; height:auto; cursor:default; }
+
+.legend {
+  display:flex; gap:24px; padding:9px 14px; align-items:center;
+  background:#fff; border:1px solid var(--pg-bdr); border-top:none;
+}
+.leg-item { display:flex; align-items:center; gap:7px; font-size:11.5px; color:#444; }
+canvas.sw { display:block; }
+
+.note {
+  margin-top:0; font-size:11.5px; color:var(--pg-muted); line-height:1.6;
+  padding:9px 14px; background:var(--pg-bg);
+  border:1px solid var(--pg-bdr); border-top:none;
+}
+
+#tip {
+  position:fixed; pointer-events:none; background:#111; color:#eee;
+  font-size:11px; line-height:1.55; padding:8px 12px; display:none; z-index:10;
+}
+#tip-lbl { font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#888; margin-bottom:3px; }
+</style>
+
+<div class="page">
+  <p class="eyebrow">Corn Decision Trees · 36 Trees · All Objectives &amp; Cost Configurations</p>
+  <h1>Sensor Selection Frequency</h1>
+  <p class="sub">How many of the 36 corn decision trees selected each physical sensor location at the optimal tree depth (dark bar), and what percent of total variance explained that sensor accounted for, averaged across all 36 trees (blue bar). Sorted by depth within each sensor type. Sensors selected by fewer than 3 trees omitted.</p>
+  <div class="chart-wrap">
+    <canvas id="chart" width="680" height="528"></canvas>
+  </div>
+  <div class="legend">
+    <div class="leg-item"><canvas class="sw" id="sw-wc" width="22" height="12"></canvas><span>Water content  θ  (solid)</span></div>
+    <div class="leg-item"><canvas class="sw" id="sw-p"  width="22" height="12"></canvas><span>Matric potential  h  (hatched)</span></div>
+    <div class="leg-item"><canvas class="sw" id="sw-var" width="22" height="12"></canvas><span>% variance explained (all trees)</span></div>
+  </div>
+  <p class="note">36 trees = 3 objectives (flux, water content, flux + water content) × 12 cost configurations (baseline + cost weights 0.0–1.0 in 0.1 steps). Sensor counts from <code>extract_sensor_freq.py</code>; variance-explained percentages (sklearn feature importance, averaged over all 36 trees) from <code>extract_sensor_variance.py</code>.</p>
+</div>
+
+<div id="tip"><div id="tip-lbl"></div><div id="tip-body"></div></div>
+
+<script>
+const CW=680, TOTAL=36;
+let CH; // computed in draw() from row counts
+
+// Data from extract_sensor_freq.py — corn, sensors with n≥3
+// v = % of total variance explained, averaged over all 36 trees
+// (extract_sensor_variance.py)
+const WC=[
+  {d:4,n:8,v:0.361},{d:8,n:3,v:0.272},{d:12,n:7,v:0.737},{d:16,n:21,v:10.840},{d:20,n:6,v:9.435},
+  {d:24,n:9,v:1.429},{d:28,n:8,v:6.343},{d:32,n:6,v:0.051},{d:36,n:7,v:3.399},{d:40,n:4,v:0.099},
+  {d:44,n:3,v:0.109},{d:56,n:5,v:0.181},{d:124,n:23,v:52.609},{d:176,n:4,v:0.407},
+];
+const P=[
+  {d:4,n:12,v:0.365},{d:8,n:6,v:0.926},{d:12,n:4,v:0.061},{d:16,n:5,v:0.115},{d:20,n:5,v:0.261},
+  {d:24,n:5,v:3.593},{d:28,n:3,v:0.040},{d:36,n:3,v:0.012},{d:48,n:4,v:0.016},{d:56,n:4,v:0.038},
+  {d:124,n:5,v:4.204},{d:128,n:3,v:0.009},{d:132,n:3,v:0.034},{d:176,n:8,v:0.769},
+];
+
+// Layout constants — two side-by-side columns (Water Content | Matric Potential)
+const COL_GAP=14, LM=74, RM=12, TM=10, BM=46, SEC_H=24;
+const COL_W=(CW-COL_GAP)/2;
+const PW=COL_W-LM-RM;        // plot width per column
+const X_MAX=70;              // % axis ceiling (covers both frequency % and variance %)
+const BAR_H=12, VAR_BAR_H=9, BAR_GAP=2, ROW_H=32;
+const VAR_COLOR='#2A6DB0';
+const UI='-apple-system,system-ui,sans-serif';
+
+function colX(ci){ return ci*(COL_W+COL_GAP); }
+function xOf(n, ci){ return colX(ci)+LM+(n/TOTAL*100/X_MAX)*PW; }
+function xOfPct(pct, ci){ return colX(ci)+LM+(pct/X_MAX)*PW; }
+
+// Hatch pattern factory
+function mkHatch(ctx){
+  const hc=document.createElement('canvas'); hc.width=5; hc.height=5;
+  const hx=hc.getContext('2d');
+  hx.fillStyle='#fff'; hx.fillRect(0,0,5,5);
+  hx.strokeStyle='#555'; hx.lineWidth=1;
+  hx.beginPath(); hx.moveTo(0,5); hx.lineTo(5,0); hx.stroke();
+  return ctx.createPattern(hc,'repeat');
+}
+
+const hits=[];
+
+function draw(){
+  const cv=document.getElementById('chart');
+  const maxRows=Math.max(WC.length, P.length);
+  CH=TM+SEC_H+maxRows*ROW_H+BM;
+  cv.width=CW; cv.height=CH;
+
+  const ctx=cv.getContext('2d');
+  const hatch=mkHatch(ctx);
+
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,CW,CH);
+  hits.length=0;
+
+  const AXIS_Y=CH-BM;
+
+  function drawAxis(ci){
+    const x0=colX(ci)+LM, x1=colX(ci)+LM+PW;
+
+    // Vertical grid lines
+    ctx.save();
+    ctx.strokeStyle='#EBEBEB'; ctx.lineWidth=1; ctx.setLineDash([]);
+    for(const p of [0,25,50]){
+      const x=colX(ci)+LM+(p/X_MAX)*PW;
+      ctx.beginPath(); ctx.moveTo(x,TM); ctx.lineTo(x,AXIS_Y); ctx.stroke();
+    }
+    ctx.restore();
+
+    // X axis baseline
+    ctx.strokeStyle='#BBBBBB'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(x0,AXIS_Y); ctx.lineTo(x1,AXIS_Y); ctx.stroke();
+
+    // X tick labels
+    ctx.fillStyle='#555'; ctx.textAlign='center'; ctx.textBaseline='top';
+    ctx.font=`10px ${UI}`;
+    for(const p of [0,25,50]){
+      const x=colX(ci)+LM+(p/X_MAX)*PW;
+      ctx.beginPath(); ctx.moveTo(x,AXIS_Y); ctx.lineTo(x,AXIS_Y+4);
+      ctx.strokeStyle='#BBBBBB'; ctx.stroke();
+      ctx.fillText(p+'%', x, AXIS_Y+7);
+    }
+  }
+
+  // --- Draw a section (column) ---
+  function drawSection(data, sym, ci){
+    const baseX=colX(ci);
+    let y=TM;
+
+    // Section header
+    ctx.fillStyle='#111'; ctx.font=`bold 10px ${UI}`;
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(sym==='θ'?'WATER CONTENT  θ':'MATRIC POTENTIAL  h', baseX+LM, y+SEC_H/2);
+    y+=SEC_H;
+
+    for(const s of data){
+      const bw=xOf(s.n,ci)-(baseX+LM);
+      const vw=xOfPct(s.v,ci)-(baseX+LM);
+      const innerH=BAR_H+BAR_GAP+VAR_BAR_H;
+      const topPad=(ROW_H-innerH)/2;
+      const freqY=y+topPad;
+      const varY=freqY+BAR_H+BAR_GAP;
+
+      // frequency bar fill
+      if(sym==='θ'){
+        ctx.fillStyle='#111';
+        ctx.fillRect(baseX+LM, freqY, bw, BAR_H);
+      } else {
+        ctx.fillStyle=hatch;
+        ctx.fillRect(baseX+LM, freqY, bw, BAR_H);
+        ctx.strokeStyle='#555'; ctx.lineWidth=0.8;
+        ctx.strokeRect(baseX+LM+0.5, freqY+0.5, bw-1, BAR_H-1);
+      }
+
+      // variance-explained bar fill (same color for both sensor types)
+      ctx.fillStyle=VAR_COLOR;
+      ctx.fillRect(baseX+LM, varY, Math.max(vw,0), VAR_BAR_H);
+
+      // sensor label (left)
+      ctx.fillStyle='#222'; ctx.font=`10px ${UI}`;
+      ctx.textAlign='right'; ctx.textBaseline='middle';
+      ctx.fillText(`${sym} @ ${s.d} cm`, baseX+LM-6, y+ROW_H/2);
+
+      // count label (right of frequency bar)
+      const cx=baseX+LM+bw+5;
+      if(cx<baseX+LM+PW-6){
+        ctx.fillStyle='#666'; ctx.font=`9px ${UI}`;
+        ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(s.n, cx, freqY+BAR_H/2);
+      }
+
+      // variance % label (right of variance bar)
+      const vx=baseX+LM+Math.max(vw,0)+5;
+      if(vx<baseX+LM+PW-6){
+        ctx.fillStyle=VAR_COLOR; ctx.font=`9px ${UI}`;
+        ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(`${s.v.toFixed(1)}%`, vx, varY+VAR_BAR_H/2);
+      }
+
+      hits.push({colX0:baseX, colX1:baseX+COL_W,
+                 rowY:y, rowH:ROW_H, d:s.d, n:s.n, v:s.v, sym});
+      y+=ROW_H;
+    }
+  }
+
+  drawAxis(0);
+  drawAxis(1);
+  drawSection(WC,'θ',0);
+  drawSection(P,'h',1);
+
+  // Shared x-axis label, centered under the whole chart
+  ctx.fillStyle='#666'; ctx.font=`11px ${UI}`; ctx.textAlign='center';
+  ctx.fillText('% of 36 trees selecting sensor (dark)  ·  % variance explained (blue)', CW/2, CH-8);
+}
+
+// Legend swatches
+function drawSwatches(){
+  const wcc=document.getElementById('sw-wc').getContext('2d');
+  wcc.fillStyle='#111'; wcc.fillRect(0,0,22,12);
+
+  const pc=document.getElementById('sw-p').getContext('2d');
+  const hc=document.createElement('canvas'); hc.width=5; hc.height=5;
+  const hx=hc.getContext('2d');
+  hx.fillStyle='#fff'; hx.fillRect(0,0,5,5);
+  hx.strokeStyle='#555'; hx.lineWidth=1;
+  hx.beginPath(); hx.moveTo(0,5); hx.lineTo(5,0); hx.stroke();
+  pc.fillStyle=pc.createPattern(hc,'repeat');
+  pc.fillRect(0,0,22,12);
+  pc.strokeStyle='#555'; pc.lineWidth=0.8;
+  pc.strokeRect(0.5,0.5,21,11);
+
+  const vc=document.getElementById('sw-var').getContext('2d');
+  vc.fillStyle=VAR_COLOR; vc.fillRect(0,0,22,12);
+}
+
+// Tooltip
+function initTooltip(){
+  const cv=document.getElementById('chart');
+  const tip=document.getElementById('tip');
+  const tlbl=document.getElementById('tip-lbl');
+  const tbody=document.getElementById('tip-body');
+
+  cv.addEventListener('mousemove', e=>{
+    const r=cv.getBoundingClientRect();
+    const mx=(e.clientX-r.left)*(CW/r.width);
+    const my=(e.clientY-r.top)*(CH/r.height);
+
+    // hit-test: full row height (so hovering the label also triggers) within
+    // the hovered column (rows in both columns share the same y positions)
+    const hit=hits.find(b=>my>=b.rowY&&my<b.rowY+b.rowH&&mx>=b.colX0&&mx<b.colX1);
+    if(!hit){ tip.style.display='none'; return; }
+
+    tlbl.textContent=`${hit.sym} @ ${hit.d} cm`;
+    tbody.innerHTML=
+      `${hit.n} of ${TOTAL} trees selected<br>`+
+      `${(hit.n/TOTAL*100).toFixed(1)}% selection rate<br>`+
+      `${hit.v.toFixed(2)}% of variance explained (avg. across all 36 trees)`;
+    tip.style.display='block';
+    tip.style.left=(e.clientX+14)+'px';
+    tip.style.top=(e.clientY-8)+'px';
+  });
+  cv.addEventListener('mouseleave',()=>{ tip.style.display='none'; });
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  draw(); drawSwatches(); initTooltip();
+});
+</script>

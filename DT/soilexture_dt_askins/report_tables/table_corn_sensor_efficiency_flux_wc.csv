@@ -1,0 +1,11 @@
+rank,sensor,type,importance_pct,standalone_cost,efficiency,n_trees_of_12
+1,wc@124cm,Water content,67.159,11.1,6.0504,12
+2,wc@16cm,Water content,9.34,6.9,1.3536,9
+3,p@24cm,Pressure,5.171,12.1,0.4274,5
+4,p@124cm,Pressure,6.765,16.1,0.4202,3
+5,wc@24cm,Water content,2.455,7.1,0.3458,4
+6,wc@36cm,Water content,1.556,7.7,0.2021,7
+7,p@112cm,Pressure,1.977,15.7,0.1259,1
+8,p@8cm,Pressure,1.364,11.5,0.1186,3
+9,wc@4cm,Water content,0.569,6.3,0.0903,5
+10,wc@12cm,Water content,0.535,6.7,0.0799,4

@@ -1,0 +1,40 @@
+{
+  "corn": [
+    {
+      "objective": "flux",
+      "n_trees": 12,
+      "n_unique_sensors": 78,
+      "early (day 0-4)": 63,
+      "middle (day 5-9)": 19,
+      "late (day 10-15)": 53,
+      "total": 135
+    },
+    {
+      "objective": "wc",
+      "n_trees": 12,
+      "n_unique_sensors": 62,
+      "early (day 0-4)": 50,
+      "middle (day 5-9)": 16,
+      "late (day 10-15)": 26,
+      "total": 92
+    },
+    {
+      "objective": "flux_wc",
+      "n_trees": 12,
+      "n_unique_sensors": 186,
+      "early (day 0-4)": 142,
+      "middle (day 5-9)": 67,
+      "late (day 10-15)": 81,
+      "total": 290
+    },
+    {
+      "objective": "TOTAL",
+      "n_trees": 36,
+      "n_unique_sensors": 244,
+      "early (day 0-4)": 255,
+      "middle (day 5-9)": 102,
+      "late (day 10-15)": 160,
+      "total": 517
+    }
+  ]
+}

@@ -1,0 +1,345 @@
+<title>Sensor Network Optimisation Pipeline</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #E9EDF2;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    color: #1A2733;
+    padding: 48px 24px 64px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .pipeline {
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  /* ── header ─────────────────────────────────────── */
+  .page-header {
+    margin-bottom: 40px;
+  }
+  .page-eyebrow {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6B88A0;
+    margin-bottom: 8px;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #111E2A;
+    text-wrap: balance;
+    margin-bottom: 6px;
+  }
+  .page-sub {
+    font-size: 13px;
+    color: #5A7083;
+    line-height: 1.5;
+  }
+
+  /* ── stage card ─────────────────────────────────── */
+  .stage {
+    background: #FFFFFF;
+    border: 1px solid #C8D4DF;
+    border-left: 4px solid currentColor;
+    padding: 16px 18px 16px 16px;
+    position: relative;
+  }
+
+  .stage-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .stage-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    opacity: 0.75;
+  }
+  .stage-title {
+    font-size: 14.5px;
+    font-weight: 650;
+    color: #111E2A;
+    flex: 1;
+  }
+  .tool-badge {
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 9.5px;
+    background: #EDF1F5;
+    color: #4A6273;
+    border: 1px solid #C8D4DF;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+
+  /* bullet rows */
+  .stage-body {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 12.5px;
+    color: #3D5669;
+    line-height: 1.45;
+  }
+  .row::before {
+    content: '';
+    flex-shrink: 0;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.4;
+    position: relative;
+    top: 4px;
+  }
+  .val {
+    font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+    font-size: 11px;
+    color: #1A2733;
+    background: #EDF1F5;
+    padding: 0 4px;
+    border-radius: 2px;
+  }
+
+  /* phase colors */
+  .ph-input   { color: #546E7A; }
+  .ph-hydrus  { color: #1356A0; }
+  .ph-process { color: #007165; }
+  .ph-train   { color: #C25F00; }
+  .ph-eval    { color: #5B3FA3; }
+  .ph-output  { color: #256E40; }
+
+  /* ── connector ──────────────────────────────────── */
+  .connector {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    height: 44px;
+    padding: 0 0 0 26px;
+  }
+  .connector-track {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 20px;
+    flex-shrink: 0;
+  }
+  .connector-line {
+    width: 1.5px;
+    flex: 1;
+    background: #8FA9BE;
+  }
+  .connector-arrow {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 7px solid #8FA9BE;
+    margin-top: 0;
+  }
+  .connector-label {
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    font-size: 10.5px;
+    color: #7A96AB;
+    font-style: italic;
+    line-height: 1;
+  }
+
+  /* ── output panel ───────────────────────────────── */
+  .output-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: #C8D4DF;
+    border: 1px solid #C8D4DF;
+    margin-top: 10px;
+  }
+  .output-cell {
+    background: #F5F8FA;
+    padding: 10px 12px;
+  }
+  .output-cell-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #6B88A0;
+    margin-bottom: 4px;
+  }
+  .output-cell-value {
+    font-size: 12px;
+    color: #1A2733;
+    line-height: 1.4;
+  }
+
+  /* ── figure caption ─────────────────────────────── */
+  .caption {
+    margin-top: 24px;
+    font-size: 11.5px;
+    color: #7A96AB;
+    line-height: 1.55;
+    border-top: 1px solid #C8D4DF;
+    padding-top: 14px;
+  }
+  .caption strong {
+    color: #4A6273;
+    font-weight: 600;
+  }
+</style>
+
+<div class="pipeline">
+
+  <div class="page-header">
+    <p class="page-eyebrow">Figure — Methodology Overview</p>
+    <h1 class="page-title">Sensor Network Optimisation Pipeline</h1>
+    <p class="page-sub">From HYDRUS simulation to cost-optimal soil sensor selection using decision tree regression</p>
+  </div>
+
+  <!-- ── Stage 1: Inputs ───────────────────────────── -->
+  <div class="stage ph-input">
+    <div class="stage-header">
+      <span class="stage-label ph-input">Inputs</span>
+      <span class="stage-title">Simulation Parameters</span>
+    </div>
+    <div class="stage-body">
+      <div class="row">Soil textures — <span class="val">45</span> combinations of sand / silt / clay at 5 % intervals</div>
+      <div class="row">Plant type — <span class="val">corn</span> (200 cm profile, 15-day flood) or <span class="val">beans</span> (60 cm profile, 7-day flood)</div>
+      <div class="row">Irrigation — surface ponding depth and schedule; root depth range per crop</div>
+      <div class="row">Soil hydraulics — van Genuchten parameters (θr, θs, α, n, Ks, l) from Rosetta pedotransfer functions</div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="connector-track"><div class="connector-line"></div><div class="connector-arrow"></div></div>
+    <div class="connector-label">simulation parameters per trial</div>
+  </div>
+
+  <!-- ── Stage 2: HYDRUS ───────────────────────────── -->
+  <div class="stage ph-hydrus">
+    <div class="stage-header">
+      <span class="stage-label ph-hydrus">Simulation</span>
+      <span class="stage-title">HYDRUS 1D — Soil Water Flow</span>
+      <span class="tool-badge">HYDRUSmain_basic.py</span>
+    </div>
+    <div class="stage-body">
+      <div class="row"><span class="val">585–945</span> individual simulations per crop — one per soil texture × root depth combination</div>
+      <div class="row">1D Richards equation solved over the flood event; free drainage at the lower boundary</div>
+      <div class="row">Outputs recorded at each node at every print time: water content <span class="val">θ</span>, matric potential <span class="val">h</span>, and flux <span class="val">q</span></div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="connector-track"><div class="connector-line"></div><div class="connector-arrow"></div></div>
+    <div class="connector-label">binary .mat files per trial</div>
+  </div>
+
+  <!-- ── Stage 3: Processing ──────────────────────── -->
+  <div class="stage ph-process">
+    <div class="stage-header">
+      <span class="stage-label ph-process">Processing</span>
+      <span class="stage-title">Feature Matrix Construction</span>
+      <span class="tool-badge">process_hydrus_results.py</span>
+    </div>
+    <div class="stage-body">
+      <div class="row">Binary outputs converted to a structured CSV, indexed by time step and soil depth</div>
+      <div class="row"><span class="val">1,600</span> candidate input features per trial — 2 sensor types × 50 depths × 16 time steps</div>
+      <div class="row">Trials split <span class="val">80 / 20</span> into training and test sets (random seed fixed for reproducibility)</div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="connector-track"><div class="connector-line"></div><div class="connector-arrow"></div></div>
+    <div class="connector-label">feature matrix + target values</div>
+  </div>
+
+  <!-- ── Stage 4: Training ─────────────────────────── -->
+  <div class="stage ph-train">
+    <div class="stage-header">
+      <span class="stage-label ph-train">Training</span>
+      <span class="stage-title">Cost-Aware Decision Tree Regression</span>
+      <span class="tool-badge">dt_cost_by_level_main.py</span>
+    </div>
+    <div class="stage-body">
+      <div class="row">Three prediction targets — flux at depth, average root-zone water content, and both simultaneously</div>
+      <div class="row">Cost threshold swept from <span class="val">0.0</span> (accuracy only) to <span class="val">1.0</span> (cost only) in 11 steps; one tree trained per value</div>
+      <div class="row">Split criterion balances variance reduction against a four-component sensor cost: initial installation, sensor unit, depth, and per-measurement</div>
+      <div class="row">Maximum tree depth <span class="val">10</span>; minimum impurity improvement threshold applied as a regulariser</div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="connector-track"><div class="connector-line"></div><div class="connector-arrow"></div></div>
+    <div class="connector-label">trained trees + rtinfo objects (.pkl)</div>
+  </div>
+
+  <!-- ── Stage 5: Evaluation ──────────────────────── -->
+  <div class="stage ph-eval">
+    <div class="stage-header">
+      <span class="stage-label ph-eval">Evaluation</span>
+      <span class="stage-title">Performance &amp; Cost Analysis</span>
+      <span class="tool-badge">compare_trees.py</span>
+    </div>
+    <div class="stage-body">
+      <div class="row">R² and RMSE computed on the held-out test set at the optimal tree depth for each configuration</div>
+      <div class="row">Unique physical sensor locations identified — sensor type (water content or pressure) and installation depth</div>
+      <div class="row">Total sensor cost accumulated across all nodes using the same four-component cost model as training</div>
+      <div class="row">Per-target R² and RMSE computed separately for multi-output trees</div>
+    </div>
+  </div>
+
+  <div class="connector">
+    <div class="connector-track"><div class="connector-line"></div><div class="connector-arrow"></div></div>
+    <div class="connector-label">cost–accuracy metrics per configuration</div>
+  </div>
+
+  <!-- ── Stage 6: Output ──────────────────────────── -->
+  <div class="stage ph-output">
+    <div class="stage-header">
+      <span class="stage-label ph-output">Output</span>
+      <span class="stage-title">Optimal Sensor Layout</span>
+    </div>
+    <div class="output-grid">
+      <div class="output-cell">
+        <div class="output-cell-label">Sensor type</div>
+        <div class="output-cell-value">Water content (θ) or matric potential (h) probe at each location</div>
+      </div>
+      <div class="output-cell">
+        <div class="output-cell-label">Installation depths</div>
+        <div class="output-cell-value">Soil depths (cm) selected by the tree at its optimal level</div>
+      </div>
+      <div class="output-cell">
+        <div class="output-cell-label">Cost–accuracy frontier</div>
+        <div class="output-cell-value">R², RMSE, and total cost across all 11 cost threshold values</div>
+      </div>
+      <div class="output-cell">
+        <div class="output-cell-label">Exported files</div>
+        <div class="output-cell-value">Plant-type-labelled CSV tables ready for report inclusion</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="caption">
+    <strong>Figure.</strong> Overview of the decision tree sensor optimisation pipeline. HYDRUS 1D
+    simulations generate synthetic soil water data across the full space of soil textures, root depths,
+    and plant types. A cost-aware decision tree is then trained on 1,600 candidate sensor features,
+    sweeping a cost threshold parameter to trace the trade-off between sensor network cost and
+    predictive accuracy. The trained trees are evaluated on held-out test data, and the resulting
+    cost–accuracy tables identify the sensor configuration — type and depth — that best satisfies
+    the monitoring objective at each level of cost constraint.
+  </p>
+
+</div>

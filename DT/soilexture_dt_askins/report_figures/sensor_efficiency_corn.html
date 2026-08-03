@@ -1,0 +1,308 @@
+<title>Sensor Cost-Effectiveness — Corn</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #E9EDF2; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #1A2733; padding: 40px 20px 60px; -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 760px; margin: 0 auto; }
+.page-header { margin-bottom: 28px; }
+.eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #7A96AB; margin-bottom: 6px; }
+.page-title { font-size: 20px; font-weight: 700; color: #111E2A; margin-bottom: 5px; text-wrap: balance; }
+.page-sub { font-size: 12.5px; color: #5A7083; line-height: 1.55; max-width: 620px; }
+
+.legend { display: flex; gap: 22px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+.legend-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #3D5669; font-weight: 500; }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+.legend-note { font-size: 11px; color: #8AA0B0; font-style: italic; display: flex; align-items: center; gap: 6px; }
+.legend-size { display: flex; align-items: center; gap: 3px; }
+.ls-s { width: 7px; height: 7px; border-radius: 50%; background: #8AA0B0; display: inline-block; }
+.ls-l { width: 13px; height: 13px; border-radius: 50%; background: #8AA0B0; display: inline-block; }
+
+.obj-block { margin-bottom: 12px; }
+.obj-label {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: #7A96AB;
+  margin-bottom: 4px;
+}
+.chart-wrap { background: #fff; border: 1px solid #C8D4DF; }
+.chart-wrap svg { display: block; width: 100%; }
+
+#tooltip {
+  position: fixed; pointer-events: none;
+  background: #1A2733; color: #F0F4F8;
+  font-size: 11px; line-height: 1.65;
+  padding: 8px 12px; z-index: 100; display: none; white-space: nowrap;
+}
+.tt-head { font-size: 10px; font-weight: 700; color: #8BB4D0; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.tt-row { display: flex; justify-content: space-between; gap: 18px; }
+.tt-val { font-family: "SF Mono","Fira Code","Consolas",monospace; font-size: 10.5px; }
+
+.caption {
+  margin-top: 18px; font-size: 11px; color: #7A96AB;
+  line-height: 1.6; border-top: 1px solid #C8D4DF; padding-top: 12px;
+}
+.caption strong { color: #4A6273; font-weight: 600; }
+</style>
+
+<div class="page">
+  <div class="page-header">
+    <p class="eyebrow">Corn — Decision Tree Analysis</p>
+    <h1 class="page-title">Sensor Cost-Effectiveness by Objective</h1>
+    <p class="page-sub">Each point is one physical sensor location. Position shows its installation cost (x) and weighted-average feature importance across all 12 corn trees for that objective (y). Diagonal guide lines mark equal efficiency; sensors above a line are more cost-effective than sensors below it.</p>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#1356A0"></div>Water content (θ)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#C25F00"></div>Pressure / matric potential (h)</div>
+    <div class="legend-note">
+      <div class="legend-size"><div class="ls-s"></div><div class="ls-l"></div></div>
+      Circle size = trees using this sensor (of 12)
+    </div>
+  </div>
+
+  <div class="obj-block"><div class="obj-label">Objective: Flux prediction</div><div class="chart-wrap" id="flux-chart"></div></div>
+  <div class="obj-block"><div class="obj-label">Objective: Water content prediction</div><div class="chart-wrap" id="wc-chart"></div></div>
+  <div class="obj-block"><div class="obj-label">Objective: Flux + water content (combined)</div><div class="chart-wrap" id="fluxwc-chart"></div></div>
+
+  <p class="caption">
+    <strong>Importance</strong> is the weighted-average fraction of total variance explained by all splits on this sensor location, averaged across all 12 trained trees (baseline + cost thresholds 0.0–1.0) for each objective, weighted by each tree's training variance explained.
+    <strong>Standalone cost</strong> is the sum of initial setup, sensor unit, depth installation, and per-measurement costs assuming no other sensors exist — the maximum marginal cost of adding this sensor to a network.
+    <strong>Efficiency</strong> (diagonal guide lines) = importance % ÷ cost. Sensors to the upper-left are more cost-effective; those to the lower-right deliver less accuracy per unit cost.
+  </p>
+</div>
+<div id="tooltip"></div>
+
+<script>
+const WC_COL = '#1356A0', P_COL = '#C25F00';
+const WC_LIGHT = 'rgba(19,86,160,0.15)', P_LIGHT = 'rgba(194,95,0,0.15)';
+
+const data = {
+  flux: [
+    {label:"wc@20cm",  type:"wc", importance:31.169, cost:6.9,  n:5},
+    {label:"wc@16cm",  type:"wc", importance:19.014, cost:6.9,  n:8},
+    {label:"wc@28cm",  type:"wc", importance:19.822, cost:7.3,  n:4},
+    {label:"wc@124cm", type:"wc", importance:12.404, cost:11.1, n:3},
+    {label:"wc@36cm",  type:"wc", importance:7.953,  cost:7.7,  n:1},
+    {label:"wc@24cm",  type:"wc", importance:1.651,  cost:7.1,  n:5},
+    {label:"p@176cm",  type:"p",  importance:2.508,  cost:18.3, n:6},
+    {label:"wc@176cm", type:"wc", importance:1.349,  cost:13.3, n:5},
+    {label:"p@4cm",    type:"p",  importance:1.042,  cost:11.3, n:6},
+    {label:"p@20cm",   type:"p",  importance:0.844,  cost:11.9, n:5}
+  ],
+  wc: [
+    {label:"wc@124cm", type:"wc", importance:70.453, cost:11.1, n:10},
+    {label:"wc@16cm",  type:"wc", importance:6.6,   cost:6.9,  n:10},
+    {label:"p@24cm",   type:"p",  importance:5.39,  cost:12.1, n:5},
+    {label:"p@124cm",  type:"p",  importance:6.539, cost:16.1, n:3},
+    {label:"wc@12cm",  type:"wc", importance:1.752, cost:6.7,  n:5},
+    {label:"p@104cm",  type:"p",  importance:1.943, cost:15.3, n:1},
+    {label:"p@8cm",    type:"p",  importance:1.347, cost:11.5, n:3},
+    {label:"p@44cm",   type:"p",  importance:1.237, cost:12.9, n:4},
+    {label:"wc@4cm",   type:"wc", importance:0.504, cost:6.3,  n:5},
+    {label:"p@156cm",  type:"p",  importance:1.278, cost:17.5, n:1}
+  ],
+  fluxwc: [
+    {label:"wc@124cm", type:"wc", importance:67.159, cost:11.1, n:12},
+    {label:"wc@16cm",  type:"wc", importance:9.34,  cost:6.9,  n:9},
+    {label:"p@24cm",   type:"p",  importance:5.171, cost:12.1, n:5},
+    {label:"p@124cm",  type:"p",  importance:6.765, cost:16.1, n:3},
+    {label:"wc@24cm",  type:"wc", importance:2.455, cost:7.1,  n:4},
+    {label:"wc@36cm",  type:"wc", importance:1.556, cost:7.7,  n:7},
+    {label:"p@112cm",  type:"p",  importance:1.977, cost:15.7, n:1},
+    {label:"p@8cm",    type:"p",  importance:1.364, cost:11.5, n:3},
+    {label:"wc@4cm",   type:"wc", importance:0.569, cost:6.3,  n:5},
+    {label:"wc@12cm",  type:"wc", importance:0.535, cost:6.7,  n:4}
+  ]
+};
+
+const NS = 'http://www.w3.org/2000/svg';
+function se(tag, a = {}) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(a)) e.setAttribute(k, v);
+  return e;
+}
+
+const tooltip = document.getElementById('tooltip');
+
+function buildChart(containerId, sensors) {
+  const W = 720, H = 230;
+  const ml = 46, mr = 60, mt = 16, mb = 38;
+  const pw = W - ml - mr, ph = H - mt - mb;
+
+  const xMin = 5.5, xMax = 20.5;
+  const yMax = Math.max(...sensors.map(s => s.importance)) * 1.18;
+  const yMin = 0;
+
+  function xp(v) { return ml + (v - xMin) / (xMax - xMin) * pw; }
+  function yp(v) { return mt + ph - (v - yMin) / (yMax - yMin) * ph; }
+  function rSize(n) { return 4 + n * 1.1; }
+
+  const svg = se('svg', {viewBox: `0 0 ${W} ${H}`});
+
+  // grid
+  const yTicks = [0, 10, 20, 30, 40, 50, 60, 70].filter(v => v <= yMax * 1.05);
+  for (const v of yTicks) {
+    const y = yp(v);
+    svg.appendChild(se('line', {x1: ml, y1: y, x2: ml + pw, y2: y, stroke: '#EDF0F4', 'stroke-width': 1}));
+    svg.appendChild(Object.assign(document.createElementNS(NS, 'text'), {textContent: v + '%'}));
+    const t = se('text', {x: ml - 5, y: y + 3.5, 'text-anchor': 'end', fill: '#8AA0B0', 'font-size': '9', 'font-family': 'system-ui,sans-serif'});
+    t.textContent = v + '%';
+    svg.appendChild(t);
+  }
+
+  // iso-efficiency lines
+  const effLines = [
+    {E: 0.5, label: '0.5'},
+    {E: 1.0, label: '1'},
+    {E: 2.0, label: '2'},
+    {E: 4.0, label: '4'},
+    {E: 6.5, label: '6.5'},
+  ];
+  for (const {E, label} of effLines) {
+    const x1 = xMin, y1 = E * xMin;
+    const x2 = xMax, y2 = E * xMax;
+    const px1 = xp(x1), py1 = yp(Math.min(y1, yMax));
+    const px2 = xp(x2), py2 = yp(Math.min(y2, yMax));
+    const clipped_y2 = Math.min(y2, yMax);
+    const clipped_x2 = clipped_y2 < y2 ? xMin + (yMax - y1) / E : x2;
+
+    svg.appendChild(se('line', {
+      x1: px1, y1: yp(y1 < 0 ? 0 : y1),
+      x2: xp(clipped_x2), y2: yp(clipped_y2),
+      stroke: '#DAE3EC', 'stroke-width': 1, 'stroke-dasharray': '3,3'
+    }));
+
+    // label at right end if visible
+    if (clipped_y2 <= yMax && clipped_y2 >= 0) {
+      const lx = xp(clipped_x2) + 3;
+      const ly = yp(clipped_y2) + 3;
+      if (lx < W - 5) {
+        const t = se('text', {x: lx, y: ly, fill: '#B0C0CE', 'font-size': '8.5', 'font-family': 'system-ui,sans-serif', 'font-style': 'italic'});
+        t.textContent = label;
+        svg.appendChild(t);
+      }
+    }
+  }
+
+  // axes
+  svg.appendChild(se('line', {x1: ml, y1: mt, x2: ml, y2: mt + ph, stroke: '#C4CFD9', 'stroke-width': 1}));
+  svg.appendChild(se('line', {x1: ml, y1: mt + ph, x2: ml + pw, y2: mt + ph, stroke: '#C4CFD9', 'stroke-width': 1}));
+
+  // x ticks
+  for (let v = 6; v <= 20; v += 2) {
+    const x = xp(v);
+    svg.appendChild(se('line', {x1: x, y1: mt + ph, x2: x, y2: mt + ph + 4, stroke: '#C4CFD9', 'stroke-width': 1}));
+    const t = se('text', {x, y: mt + ph + 13, 'text-anchor': 'middle', fill: '#8AA0B0', 'font-size': '9', 'font-family': 'system-ui,sans-serif'});
+    t.textContent = v;
+    svg.appendChild(t);
+  }
+
+  // axis labels
+  const xl = se('text', {x: ml + pw / 2, y: H - 4, 'text-anchor': 'middle', fill: '#8AA0B0', 'font-size': '9.5', 'font-family': 'system-ui,sans-serif'});
+  xl.textContent = 'Standalone sensor cost (index)';
+  svg.appendChild(xl);
+
+  const yl = se('text', {
+    transform: `rotate(-90) translate(${-(mt + ph / 2)}, ${ml - 34})`,
+    'text-anchor': 'middle', fill: '#8AA0B0', 'font-size': '9.5', 'font-family': 'system-ui,sans-serif'
+  });
+  yl.textContent = 'Feature importance (%)';
+  svg.appendChild(yl);
+
+  // efficiency label
+  const el_txt = se('text', {x: ml + pw + 4, y: mt + 10, fill: '#B0C0CE', 'font-size': '8', 'font-family': 'system-ui,sans-serif', 'font-style': 'italic'});
+  el_txt.textContent = 'efficiency';
+  svg.appendChild(el_txt);
+
+  // compute label positions with overlap avoidance
+  const ptInfo = sensors.map(s => ({
+    ...s,
+    px: xp(s.cost),
+    py: yp(s.importance),
+    r: rSize(s.n),
+    col: s.type === 'wc' ? WC_COL : P_COL
+  }));
+
+  // label offsets — default right, adjust for crowding
+  const placed = [];
+  function noOverlap(x, y, w, h) {
+    for (const p of placed) {
+      if (x < p.x + p.w && x + w > p.x && y < p.y + p.h && y + h > p.y) return false;
+    }
+    return true;
+  }
+
+  // sort by importance desc so prominent sensors get best label spots
+  const sorted = [...ptInfo].sort((a, b) => b.importance - a.importance);
+
+  for (const pt of sorted) {
+    let lx = pt.px + pt.r + 3;
+    let ly = pt.py;
+    const lw = pt.label.length * 5.5;
+    const lh = 9;
+
+    // try right, left, above, below
+    const opts = [
+      [pt.px + pt.r + 3, pt.py - 4],
+      [pt.px - lw - pt.r - 3, pt.py - 4],
+      [pt.px - lw / 2, pt.py - pt.r - 6],
+      [pt.px - lw / 2, pt.py + pt.r + 9],
+    ];
+    let chosen = opts[0];
+    for (const [ox, oy] of opts) {
+      if (ox >= ml && ox + lw <= W - 5 && noOverlap(ox, oy, lw, lh)) {
+        chosen = [ox, oy];
+        break;
+      }
+    }
+    [lx, ly] = chosen;
+    placed.push({x: lx, y: ly - lh, w: lw, h: lh});
+    pt._lx = lx; pt._ly = ly;
+  }
+
+  // draw points and labels
+  for (const pt of ptInfo) {
+    // halo
+    svg.appendChild(se('circle', {cx: pt.px, cy: pt.py, r: pt.r + 2, fill: pt.type === 'wc' ? WC_LIGHT : P_LIGHT}));
+    // dot
+    const dot = se('circle', {cx: pt.px, cy: pt.py, r: pt.r, fill: pt.col, stroke: '#fff', 'stroke-width': '1.5', style: 'cursor:default'});
+    dot._data = pt;
+    svg.appendChild(dot);
+    // label
+    const t = se('text', {x: pt._lx, y: pt._ly, fill: pt.col, 'font-size': '9.5', 'font-family': 'system-ui,sans-serif', 'font-weight': '600'});
+    t.textContent = pt.label;
+    svg.appendChild(t);
+  }
+
+  // tooltip
+  svg.addEventListener('mousemove', e => {
+    let best = null, bestDist = 30;
+    for (const pt of ptInfo) {
+      const rect = svg.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const sx = (e.clientX - rect.left) * scaleX;
+      const sy = (e.clientY - rect.top) * scaleX;
+      const d = Math.hypot(sx - pt.px, sy - pt.py);
+      if (d < bestDist) { bestDist = d; best = pt; }
+    }
+    if (!best) { tooltip.style.display = 'none'; return; }
+    tooltip.style.display = 'block';
+    tooltip.innerHTML = `
+      <div class="tt-head">${best.label}</div>
+      <div class="tt-row"><span>Importance</span><span class="tt-val">${best.importance.toFixed(1)}%</span></div>
+      <div class="tt-row"><span>Cost</span><span class="tt-val">${best.cost}</span></div>
+      <div class="tt-row"><span>Efficiency</span><span class="tt-val">${(best.importance/best.cost).toFixed(2)}</span></div>
+      <div class="tt-row"><span>Trees using it</span><span class="tt-val">${best.n} / 12</span></div>`;
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 8) + 'px';
+  });
+  svg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+  document.getElementById(containerId).appendChild(svg);
+}
+
+buildChart('flux-chart',   data.flux);
+buildChart('wc-chart',     data.wc);
+buildChart('fluxwc-chart', data.fluxwc);
+</script>

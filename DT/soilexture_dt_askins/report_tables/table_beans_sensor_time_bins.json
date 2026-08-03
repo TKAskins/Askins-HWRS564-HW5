@@ -1,0 +1,40 @@
+{
+  "beans": [
+    {
+      "objective": "flux",
+      "n_trees": 12,
+      "n_unique_sensors": 26,
+      "early (day 0-2)": 27,
+      "middle (day 3-5)": 30,
+      "late (day 6-7)": 10,
+      "total": 67
+    },
+    {
+      "objective": "wc",
+      "n_trees": 12,
+      "n_unique_sensors": 46,
+      "early (day 0-2)": 52,
+      "middle (day 3-5)": 43,
+      "late (day 6-7)": 15,
+      "total": 110
+    },
+    {
+      "objective": "flux_wc",
+      "n_trees": 12,
+      "n_unique_sensors": 46,
+      "early (day 0-2)": 44,
+      "middle (day 3-5)": 27,
+      "late (day 6-7)": 6,
+      "total": 77
+    },
+    {
+      "objective": "TOTAL",
+      "n_trees": 36,
+      "n_unique_sensors": 94,
+      "early (day 0-2)": 123,
+      "middle (day 3-5)": 100,
+      "late (day 6-7)": 31,
+      "total": 254
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Timing of Sensor Readings for Beans,,,,,,
+Objective,Number of Trees,Number of Unique Sensors,Early Cycle Readings (day 0-2),Mid Cycle Readings (day 3-5),Late Cycle Readings (day 6-7),Total Readings
+Flux,12,26,27,30,10,67
+Water Content,12,46,52,43,15,110
+Flux+WC,12,46,44,27,6,77
+TOTAL,36,94,123,100,31,254

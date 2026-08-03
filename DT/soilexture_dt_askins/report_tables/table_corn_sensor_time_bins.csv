@@ -1,0 +1,5 @@
+objective,n_trees,n_unique_sensors,early (day 0-4),middle (day 5-9),late (day 10-15),total
+flux,12,78,63,19,53,135
+wc,12,62,50,16,26,92
+flux_wc,12,186,142,67,81,290
+TOTAL,36,244,255,102,160,517

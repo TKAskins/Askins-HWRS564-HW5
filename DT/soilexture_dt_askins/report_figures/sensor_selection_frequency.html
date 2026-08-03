@@ -1,0 +1,260 @@
+<title>Sensor Selection Frequency</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #E9EDF2;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: #1A2733;
+  padding: 40px 20px 60px;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 820px; margin: 0 auto; }
+.page-header { margin-bottom: 28px; }
+.eyebrow { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #000; margin-bottom: 6px; }
+.page-title { font-size: 20px; font-weight: 700; color: #000; margin-bottom: 5px; text-wrap: balance; }
+.page-sub { font-size: 12.5px; color: #000; line-height: 1.55; }
+
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.panel {
+  background: #fff;
+  border: 1px solid #C8D4DF;
+}
+.panel-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: #000;
+  padding: 11px 14px 0;
+}
+
+.legend {
+  display: flex; gap: 22px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.legend-item {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: #000; font-weight: 500;
+}
+.legend-swatch {
+  width: 22px; height: 3px; border-radius: 2px;
+  display: inline-block;
+}
+.legend-note {
+  font-size: 11px; color: #000; font-style: italic;
+  display: flex; align-items: center; gap: 6px;
+}
+.legend-dash {
+  width: 20px; height: 0; border-top: 1.5px dashed #8AA0B0;
+}
+
+#tooltip {
+  position: fixed; pointer-events: none;
+  background: #1A2733; color: #F0F4F8;
+  font-size: 11px; line-height: 1.65;
+  padding: 8px 12px; z-index: 100; display: none;
+}
+.tt-head { font-size: 10px; font-weight: 700; color: #8BB4D0; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+.tt-row { display: flex; justify-content: space-between; gap: 18px; }
+.tt-val { font-family: "SF Mono","Fira Code","Consolas",monospace; font-size: 10.5px; }
+.tc { color: #81AEDD; } .tb { color: #F0A95A; }
+
+.caption {
+  margin-top: 20px; font-size: 11px; color: #000;
+  line-height: 1.6; border-top: 1px solid #C8D4DF; padding-top: 12px;
+}
+.caption strong { color: #000; font-weight: 600; }
+</style>
+
+<div class="page">
+  <div class="page-header">
+    <p class="eyebrow">Decision Tree Analysis</p>
+    <h1 class="page-title">Sensor Selection Frequency by Depth</h1>
+    <p class="page-sub">For each physical sensor location, how many of the 36 trained trees (per crop) selected it at their optimal depth level. Corn bars extend left; beans bars extend right. Each row is one 4 cm depth increment.</p>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#1356A0"></div>
+      Corn (← left bars)
+    </div>
+    <div class="legend-item">
+      <div class="legend-swatch" style="background:#C25F00"></div>
+      Beans (right bars →)
+    </div>
+    <div class="legend-note">
+      <div class="legend-dash"></div>
+      Beans profile boundary (60 cm)
+    </div>
+  </div>
+
+  <div class="chart-row">
+    <div class="panel" id="wc-panel">
+      <div class="panel-title">Water Content (θ) Sensors</div>
+    </div>
+    <div class="panel" id="p-panel">
+      <div class="panel-title">Pressure / Matric Potential (h) Sensors</div>
+    </div>
+  </div>
+
+  <p class="caption">
+    <strong>Notes.</strong> Each of the 36 trees per crop spans three prediction objectives (flux, water content, flux&nbsp;+&nbsp;water content) × one baseline + 11 cost-threshold values. Frequency counts the number of trees for which this sensor appeared among the unique physical sensor locations used at the optimal tree depth. A sensor used by all 36 trees would score 36. The dashed line marks the beans soil profile boundary (60&nbsp;cm); a small number of beans trees used sensors at greater depths due to features that technically exist in the training matrix beyond the profile boundary.
+  </p>
+</div>
+<div id="tooltip"></div>
+
+<script>
+const CORN = '#1356A0', BEANS = '#C25F00';
+const CORN_L = 'rgba(19,86,160,0.10)', BEANS_L = 'rgba(194,95,0,0.10)';
+const TOTAL = 36;
+const DEPTHS = Array.from({length: 50}, (_, i) => (i + 1) * 4); // 4,8,...,200
+
+const raw = {
+  corn: {
+    wc: {4:8,8:3,12:7,16:21,20:6,24:9,28:8,32:6,36:7,40:4,44:3,48:1,56:5,60:1,64:2,76:1,116:1,124:23,140:1,172:1,176:4,184:2,188:1},
+    p:  {4:12,8:6,12:4,16:5,20:5,24:5,28:3,36:3,40:2,44:2,48:4,52:1,56:4,60:2,68:1,76:1,84:1,100:1,104:1,112:2,124:5,128:3,132:3,136:2,140:1,144:2,148:2,156:1,160:1,164:2,176:8,184:2,192:2,196:1}
+  },
+  beans: {
+    wc: {4:6,8:6,12:5,16:1,20:5,24:4,28:3,32:4,36:8,44:3,48:4,52:1,56:1,60:2,104:1,176:1,200:1},
+    p:  {4:3,12:8,16:8,20:17,28:3,32:2,36:13,44:11,48:3,52:1,60:15,64:2,68:1,184:1}
+  }
+};
+
+function getVal(crop, type, depth) {
+  return raw[crop][type][depth] || 0;
+}
+
+const NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+function svgText(x, y, text, attrs = {}) {
+  const t = svgEl('text', {x, y, ...attrs});
+  t.textContent = text;
+  return t;
+}
+
+const tooltip = document.getElementById('tooltip');
+
+function buildPanel(containerId, sensorType) {
+  const container = document.getElementById(containerId);
+
+  const MT = 18, MB = 30, ML = 12, MR = 12;
+  const CENTER_X_RATIO = 0.42; // where 0-label sits (slightly left of middle for label space)
+  const DEPTH_STEP = 4;
+  const ROW_H = 8.5;       // px per 4cm row
+  const MAX_DEPTH = 200;
+  const N_ROWS = MAX_DEPTH / DEPTH_STEP; // 50
+  const PLOT_H = N_ROWS * ROW_H;
+  const H = MT + PLOT_H + MB;
+
+  // We'll set width from CSS; use viewBox
+  const W = 360;
+  const plotW = W - ML - MR;
+  const cx = ML + Math.round(plotW * CENTER_X_RATIO);
+  const maxBarW = Math.min(cx - ML - 30, plotW - (cx - ML) - 30);
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, style: 'display:block;width:100%' });
+
+  // depth → y coord (4cm = row index 0 at top)
+  function dy(depth) {
+    return MT + ((depth / DEPTH_STEP) - 1) * ROW_H + ROW_H / 2;
+  }
+
+  // background stripes (every 20cm = 5 rows)
+  for (let d = 20; d <= MAX_DEPTH; d += 40) {
+    const y1 = MT + ((d / DEPTH_STEP) - 5) * ROW_H;
+    const h = ROW_H * 5;
+    svg.appendChild(svgEl('rect', {x: ML, y: y1, width: plotW, height: h, fill: '#F6F8FA'}));
+  }
+
+  // beans profile boundary at 60cm
+  const bBound = dy(60) + ROW_H / 2;
+  const boundLine = svgEl('line', {x1: ML, y1: bBound, x2: ML + plotW, y2: bBound,
+    stroke: '#8FA9BE', 'stroke-width': 1, 'stroke-dasharray': '4,3'});
+  svg.appendChild(boundLine);
+
+  // center axis
+  svg.appendChild(svgEl('line', {x1: cx, y1: MT, x2: cx, y2: MT + PLOT_H, stroke: '#000', 'stroke-width': 1}));
+
+  // x-axis ticks and labels
+  const xTicks = [0, 9, 18, 27, 36];
+  for (const v of xTicks) {
+    const xc = cx - (v / TOTAL) * maxBarW;
+    svg.appendChild(svgEl('line', {x1: xc, y1: MT + PLOT_H, x2: xc, y2: MT + PLOT_H + 4, stroke: '#000', 'stroke-width': 1}));
+    svg.appendChild(svgText(xc, MT + PLOT_H + 12, v === 0 ? '' : String(v),
+      {'text-anchor': 'middle', fill: '#000', 'font-size': '9', 'font-family': 'system-ui,sans-serif'}));
+    const xb = cx + (v / TOTAL) * maxBarW;
+    if (v > 0) {
+      svg.appendChild(svgEl('line', {x1: xb, y1: MT + PLOT_H, x2: xb, y2: MT + PLOT_H + 4, stroke: '#000', 'stroke-width': 1}));
+      svg.appendChild(svgText(xb, MT + PLOT_H + 12, String(v),
+        {'text-anchor': 'middle', fill: '#000', 'font-size': '9', 'font-family': 'system-ui,sans-serif'}));
+    }
+  }
+  svg.appendChild(svgEl('line', {x1: ML, y1: MT + PLOT_H, x2: ML + plotW, y2: MT + PLOT_H, stroke: '#000', 'stroke-width': 1}));
+  svg.appendChild(svgText(cx, MT + PLOT_H + 22, 'Trees selected (of 36)',
+    {'text-anchor': 'middle', fill: '#000', 'font-size': '9.5', 'font-family': 'system-ui,sans-serif'}));
+
+  // surface label
+  svg.appendChild(svgText(cx, MT - 5, 'surface', {'text-anchor': 'middle', fill: '#000', 'font-size': '8', 'font-family': 'system-ui,sans-serif', 'font-style': 'italic'}));
+
+  // interactive hit areas and bars storage
+  const hitRects = [];
+
+  for (const depth of DEPTHS) {
+    const cv = getVal('corn', sensorType, depth);
+    const bv = getVal('beans', sensorType, depth);
+    if (cv === 0 && bv === 0) continue;
+
+    const y = dy(depth);
+    const barH = ROW_H * 0.72;
+    const yBar = y - barH / 2;
+
+    // corn bar (goes left)
+    if (cv > 0) {
+      const bw = (cv / TOTAL) * maxBarW;
+      svg.appendChild(svgEl('rect', {x: cx - bw, y: yBar, width: bw, height: barH, fill: CORN}));
+    }
+    // beans bar (goes right)
+    if (bv > 0) {
+      const bw = (bv / TOTAL) * maxBarW;
+      svg.appendChild(svgEl('rect', {x: cx, y: yBar, width: bw, height: barH, fill: BEANS}));
+    }
+
+    // hit rect for hover
+    const hr = svgEl('rect', {
+      x: ML, y: y - ROW_H / 2, width: plotW, height: ROW_H,
+      fill: 'transparent', style: 'cursor:default',
+      'data-depth': depth, 'data-cv': cv, 'data-bv': bv, 'data-type': sensorType
+    });
+    hitRects.push(hr);
+    svg.appendChild(hr);
+  }
+
+  // hover events
+  svg.addEventListener('mousemove', e => {
+    const r = e.target.closest('[data-depth]');
+    if (!r) { tooltip.style.display = 'none'; return; }
+    const depth = r.getAttribute('data-depth');
+    const cv = r.getAttribute('data-cv');
+    const bv = r.getAttribute('data-bv');
+    const type = r.getAttribute('data-type');
+    const pct = v => ((v / TOTAL) * 100).toFixed(0);
+    tooltip.style.display = 'block';
+    tooltip.innerHTML = `
+      <div class="tt-head">${type === 'wc' ? 'Water content' : 'Pressure'} @ ${depth} cm</div>
+      <div class="tt-row"><span class="tc">Corn</span><span class="tt-val tc">${cv} / 36 trees (${pct(cv)}%)</span></div>
+      <div class="tt-row"><span class="tb">Beans</span><span class="tt-val tb">${bv} / 36 trees (${pct(bv)}%)</span></div>`;
+    tooltip.style.left = (e.clientX + 14) + 'px';
+    tooltip.style.top = (e.clientY - 8) + 'px';
+  });
+  svg.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+
+  container.appendChild(svg);
+}
+
+buildPanel('wc-panel', 'wc');
+buildPanel('p-panel', 'p');
+</script>
