@@ -1,7 +1,7 @@
 # Askins-UoA-Research
 Repository created for Master Thesis Reseach by Trevor Askins, UoA class of 2026.
 
-Thesis ext is included in the Repo Admin folder
+Thesis text is included in the Repo Admin folder
 
 General instruction on how to clone and use this repository are below. 
 
