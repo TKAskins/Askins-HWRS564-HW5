@@ -1,6 +1,8 @@
 # Askins-UoA-Research
 Repository created for Master Thesis Reseach by Trevor Askins, UoA class of 2026.
 
+Thesis Text is included in the Repo Admin Folder
+
 General instruction on how to clone and use this repository are below. 
 
 Explanation of what each python script does is included inside the script as a comment at the top of the script.
