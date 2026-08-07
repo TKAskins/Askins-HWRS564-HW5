@@ -218,9 +218,6 @@ Askins_research_kernel
 HW6
 HW6_*
 
-# Kept as a separate repo (modified scikit-learn fork, not research output)
-scikit-learn_dt-opt_askins/
-
 # Exceeds GitHub's 100MB file limit; texture_data_avg.pkl (1.6MB) is the
 # smaller derived version used in practice
 Hydrus/python_hydrus_code/soil_texture_data/texture_data.pkl
